@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.DS_Store
+
+# Output generated files
+output/*.docx
+
+# Node
+node_modules/
+
+# Uploads
+uploads/*.png
+uploads/*.jpg

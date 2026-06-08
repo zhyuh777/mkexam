@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>mkexam — 题库管理与组卷系统</title>
+<style>
+/* Apple 风格设计 — 最大兼容性 */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f5f5f7;
+  --card:#fff;
+  --text:#1d1d1f;
+  --muted:#86868b;
+  --border:#d2d2d7;
+  --blue:#0071e3;
+  --blue-hover:#0077ed;
+  --green:#34c759;
+  --red:#ff3b30;
+  --radius:12px;
+  --shadow:0 2px 12px rgba(0,0,0,0.06);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:0}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:10;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+header h1{font-size:20px;font-weight:700;letter-spacing:-0.3px}
+.tabs{display:flex;gap:4px;margin-left:auto}
+.tab-btn{padding:8px 20px;border:none;border-radius:20px;background:transparent;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .2s}
+.tab-btn:hover{background:var(--bg);color:var(--text)}
+.tab-btn.active{background:var(--blue);color:#fff}
+.container{max-width:1200px;margin:0 auto;padding:24px 32px}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* 卡片 */
+.card{background:var(--card);border-radius:var(--radius);padding:24px;margin-bottom:16px;box-shadow:var(--shadow)}
+
+/* 题库浏览 */
+.bank-layout{display:grid;grid-template-columns:200px 1fr;gap:16px}
+.subject-list{display:flex;flex-direction:column;gap:4px}
+.subject-btn{padding:10px 16px;border:none;border-radius:8px;background:transparent;text-align:left;font-size:13px;cursor:pointer;transition:all .15s;color:var(--text)}
+.subject-btn:hover{background:var(--bg)}
+.subject-btn.active{background:var(--blue);color:#fff;font-weight:600}
+
+.q-list{display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow-y:auto}
+.q-card{border:1px solid var(--border);border-radius:10px;padding:16px;transition:box-shadow .2s}
+.q-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.q-type{display:inline-block;padding:2px 10px;border-radius:10px;background:var(--bg);font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.q-text{font-size:14px;line-height:1.6;margin-bottom:4px;white-space:pre-wrap;word-break:break-word}
+.q-text.code{font-family:'SF Mono',Monaco,'Cascadia Code',Consolas,monospace;background:#f8f8fa;padding:8px 12px;border-radius:8px;font-size:13px;border:1px solid #e8e8ed}
+.q-opts{padding-left:16px;font-size:13px;color:var(--muted)}
+.q-img{max-width:300px;max-height:200px;margin-top:8px;border-radius:8px;border:1px solid var(--border)}
+
+/* 组卷配置 */
+.cfg-grid{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.cfg-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:8px}
+.cfg-label{font-weight:600;min-width:60px}
+.cfg-avail{color:var(--muted);font-size:12px;min-width:70px}
+.cfg-input{width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;outline:none}
+.cfg-input:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(0,113,227,0.2)}
+.cfg-x{color:var(--muted);font-size:16px}
+.cfg-subtotal{font-weight:600;min-width:40px;text-align:right}
+.cfg-total{display:flex;gap:24px;padding:12px 0;font-size:15px;font-weight:600;border-top:1px solid var(--border);margin-top:8px}
+.cfg-total span{color:var(--muted);font-weight:400}
+
+.btn{padding:10px 24px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-hover)}
+.btn-secondary{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:#e8e8ed}
+.btn-group{display:flex;gap:8px;margin:12px 0}
+select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);outline:none;cursor:pointer}
+select:focus{border-color:var(--blue)}
+
+.preview-msg{text-align:center;padding:40px;color:var(--muted)}
+.preview-icon{font-size:48px;margin-bottom:12px}
+.preview-path{font-size:12px;color:var(--muted);margin-top:4px}
+.spinner{text-align:center;padding:40px;color:var(--muted)}
+
+/* 滚动条 */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#b8b8be}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 mkexam</h1>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="bank" onclick="switchTab('bank')">📚 题库</button>
+    <button class="tab-btn" data-tab="exam" onclick="switchTab('exam')">📝 组卷</button>
+    <button class="tab-btn" data-tab="edit" onclick="switchTab('edit')">✏️ 编辑</button>
+  </div>
+</header>
+
+<div class="container">
+
+<!-- Tab 1: 题库 -->
+<div class="tab-content active" id="tab-bank">
+  <div class="bank-layout">
+    <div>
+      <div class="subject-list" id="subject-list"></div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div id="type-filters" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
+      <div class="q-list" id="question-list">
+        <div class="spinner">加载中...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 2: 组卷 -->
+<div class="tab-content" id="tab-exam">
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+      <label style="font-weight:600">选择科目:</label>
+      <select id="exam-subject" style="min-width:180px"></select>
+      <label style="font-weight:600;margin-left:20px">份数:</label>
+      <input type="number" id="exam-count" value="1" min="1" max="10" class="cfg-input" style="width:50px">
+    </div>
+
+    <!-- 头部信息（可折叠） -->
+    <div style="margin-bottom:12px">
+      <div onclick="toggleHeaderForm()" style="cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);user-select:none">
+        📋 试卷头部信息 <span id="header-toggle">展开</span>
+      </div>
+      <div id="header-form" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><label style="font-size:12px;color:var(--muted)">考试课程</label><input id="h-course" class="cfg-input" style="width:100%" value="单片机技术及应用" placeholder="考试课程"></div>
+          <div><label style="font-size:12px;color:var(--muted)">年级</label><input id="h-year" class="cfg-input" style="width:100%" value="2024" placeholder="2024"></div>
+          <div style="grid-column:1/3"><label style="font-size:12px;color:var(--muted)">院系（专业）</label><input id="h-dept" class="cfg-input" style="width:100%" value="信息工程学院 人工智能技术及应用专业" placeholder="院系（专业）"></div>
+          <div><label style="font-size:12px;color:var(--muted)">命题人</label><input id="h-author" class="cfg-input" style="width:100%" value="张宇豪" placeholder="命题人"></div>
+          <div><label style="font-size:12px;color:var(--muted)">审核人</label><input id="h-reviewer" class="cfg-input" style="width:100%" value="唐娟" placeholder="审核人"></div>
+          <div><label style="font-size:12px;color:var(--muted)">政审</label><input id="h-political" class="cfg-input" style="width:100%" value="段毅" placeholder="政审"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-weight:600;margin-bottom:8px">题型配置</div>
+    <div class="cfg-grid" id="type-rows"></div>
+
+    <div class="cfg-total">
+      总分: <span id="total-score">0</span>
+      选择+判断: <span id="ct-score">0</span>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="previewQuestions()">📋 预览题目</button>
+      <button class="btn btn-secondary" onclick="previewWord()">📄 预览Word</button>
+      <button class="btn btn-secondary" onclick="previewScoring()">📊 预览评分标准</button>
+      <button class="btn btn-secondary" onclick="batchGenerate()">📦 批量出卷</button>
+    </div>
+  </div>
+
+  <div class="card" id="exam-preview">
+    <div class="preview-msg">配置题型后点击上方按钮预览</div>
+  </div>
+</div>
+
+</div>
+
+<!-- Tab 3: 编辑 -->
+<div class="tab-content" id="tab-edit">
+  <div class="card">
+    <div style="font-weight:600;font-size:16px;margin-bottom:12px">手动添加题目</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label>科目</label>
+        <select id="edit-subject" style="width:100%;margin:4px 0 8px"></select>
+      </div>
+      <div>
+        <label>题型</label>
+        <select id="edit-type" style="width:100%;margin:4px 0 8px">
+          <option value="choice">选择题</option>
+          <option value="tf">判断题</option>
+          <option value="fill">填空题</option>
+          <option value="short">简答题</option>
+          <option value="calc">计算题</option>
+          <option value="analysis">分析题</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin:6px 0">
+      <label>章节</label>
+      <input id="edit-ch" style="width:100%;margin:4px 0 8px;padding:8px 12px;border:1px solid #d2d2d7;border-radius:8px" placeholder="如：电路基本概念">
+    </div>
+    <div style="margin:6px 0">
+      <label>题干</label>
+      <textarea id="edit-q" rows="3" style="width:100%;margin:4px 0 8px;padding:8px 12px;border:1px solid #d2d2d7;border-radius:8px;font-size:13px"></textarea>
+    </div>
+    <div style="margin:6px 0" id="edit-opts-area">
+      <label>选项（每行一个）</label>
+      <textarea id="edit-opts" rows="4" style="width:100%;margin:4px 0 8px;padding:8px 12px;border:1px solid #d2d2d7;border-radius:8px;font-size:13px" placeholder="A. xxx&#10;B. xxx&#10;C. xxx&#10;D. xxx"></textarea>
+    </div>
+    <div style="margin:6px 0">
+      <label>答案</label>
+      <input id="edit-ans" style="width:100%;margin:4px 0 8px;padding:8px 12px;border:1px solid #d2d2d7;border-radius:8px">
+    </div>
+    <div style="margin:6px 0">
+      <label>配图（可选）</label>
+      <div style="display:flex;gap:8px;margin:4px 0 8px">
+        <input type="file" id="edit-img-file" accept="image/*" style="font-size:13px;flex:1">
+        <button class="btn btn-secondary" onclick="uploadImage()">上传</button>
+      </div>
+      <input id="edit-img-url" style="width:100%;padding:8px 12px;border:1px solid #d2d2d7;border-radius:8px;font-size:13px" placeholder="或直接粘贴图片URL">
+      <div id="edit-img-preview" style="margin:4px 0;display:none">
+        <img style="max-width:200px;max-height:150px;border-radius:6px;border:1px solid #d2d2d7">
+      </div>
+    </div>
+    <div style="margin:6px 0">
+      <label>难度</label>
+      <select id="edit-diff" style="margin:4px 0 8px">
+        <option value="1">1 - 简单</option>
+        <option value="2" selected>2 - 中等</option>
+        <option value="3">3 - 较难</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="addQuestion()">添加题目</button>
+    <span id="edit-msg" style="margin-left:12px;font-size:13px;color:#34c759"></span>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:600;font-size:16px;margin-bottom:12px">批量导入（CSV格式）</div>
+    <div style="font-size:12px;color:#86868b;margin-bottom:8px">
+      格式: type,ch,q,A,B,C,D,ans,difficulty<br>
+      例: choice,电路基本概念,欧姆定律表达式是？,I=U/R,U=IR,U=R/I,P=UI,0,1
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin:4px 0 8px">
+      <a href="template.csv" download class="btn btn-secondary" style="text-decoration:none">📥 下载模板</a>
+      <span style="color:#86868b;font-size:13px">或上传 CSV 文件</span>
+      <input type="file" id="import-file" accept=".csv" style="font-size:13px">
+    </div>
+    <textarea id="import-csv" rows="8" style="width:100%;margin:4px 0 8px;padding:8px 12px;border:1px solid #d2d2d7;border-radius:8px;font-size:12px;font-family:monospace" placeholder="也可以直接粘贴CSV数据..."></textarea>
+    <button class="btn btn-primary" onclick="batchImport()">导入</button>
+    <span id="import-msg" style="margin-left:12px;font-size:13px;color:#34c759"></span>
+  </div>
+</div>
+
+<script src="static/app.js?v=5"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+[
+  {
+    "title": "一、单项选择题",
+    "key": "choice",
+    "count": 15,
+    "score": 2
+  },
+  {
+    "title": "二、判断题",
+    "key": "tf",
+    "count": 5,
+    "score": 2
+  },
+  {
+    "title": "三、填空题",
+    "key": "fill",
+    "count": 5,
+    "score": 4
+  },
+  {
+    "title": "四、分析题",
+    "key": "分析题",
+    "count": 2,
+    "score": 10
+  },
+  {
+    "title": "五、应用题",
+    "key": "应用题",
+    "count": 2,
+    "score": 10
+  }
+]
