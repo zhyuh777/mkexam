@@ -108,7 +108,13 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         elif path.startswith("/api/preview-docx/"):
             # 将生成的 docx 转 HTML 返回预览（禁止缓存）
             fname = urllib.parse.unquote(path.replace("/api/preview-docx/", ""))
+            # 在 output 子目录中查找
             fp = os.path.join(OUTPUT_DIR, fname)
+            if not os.path.isfile(fp):
+                for root, dirs, files in os.walk(OUTPUT_DIR):
+                    if fname in files:
+                        fp = os.path.join(root, fname)
+                        break
             if os.path.isfile(fp) and fname.endswith(".docx"):
                 try:
                     import mammoth
@@ -132,6 +138,11 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             # 提供生成的试卷下载
             fname = urllib.parse.unquote(path.replace("/api/output/", ""))
             fp = os.path.join(OUTPUT_DIR, fname)
+            if not os.path.isfile(fp):
+                for root, dirs, files in os.walk(OUTPUT_DIR):
+                    if fname in files:
+                        fp = os.path.join(root, fname)
+                        break
             if os.path.isfile(fp):
                 with open(fp, "rb") as f:
                     content = f.read()
@@ -147,7 +158,13 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             else:
                 self._json({"error": "not found"}, 404)
         elif path == "/api/output":
-            self._json(os.listdir(OUTPUT_DIR) if os.path.exists(OUTPUT_DIR) else [])
+            # 列出 output 下所有 docx（含子目录）
+            files = []
+            for root, dirs, fnames in os.walk(OUTPUT_DIR):
+                for f in fnames:
+                    if f.endswith('.docx'):
+                        files.append(f)
+            self._json(files)
         else:
             self._json({"error": "not found"}, 404)
 
@@ -233,15 +250,18 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             n = data.get("count", 1)
             label = data.get("label", "")
             header = data.get("header", {})
+            has_answer_sheet = data.get("hasAnswerSheet", True)
             # 清理旧的 preview 文件
-            for old_f in os.listdir(OUTPUT_DIR):
-                if "preview" in old_f and old_f.endswith(".docx"):
-                    try: os.remove(os.path.join(OUTPUT_DIR, old_f))
-                    except: pass
+            for root, dirs, fnames in os.walk(OUTPUT_DIR):
+                for old_f in fnames:
+                    if "preview" in old_f and old_f.endswith(".docx"):
+                        try: os.remove(os.path.join(root, old_f))
+                        except: pass
             secs = [(s["title"], s["key"], s["count"], s["score"]) for s in sections]
             selector = ExamSelector(bank)
             # 保存header供生成器使用
             generator.header_info = header
+            generator.has_answer_sheet = has_answer_sheet
             if n == 1:
                 selected = selector.auto_select(sub_name, secs)
                 generator.generate(sub_name, selected, secs, label=label)
@@ -249,7 +269,13 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                 selected_list = selector.batch_select(sub_name, secs, n)
                 labels = [chr(65 + i) for i in range(n)]
                 generator.batch_generate(sub_name, selected_list, secs, labels)
-            self._json({"ok": True, "output": os.listdir(OUTPUT_DIR)})
+            # 列出所有 docx 文件（含子目录）
+            all_files = []
+            for root, dirs, fnames in os.walk(OUTPUT_DIR):
+                for f in fnames:
+                    if f.endswith('.docx'):
+                        all_files.append(f)
+            self._json({"ok": True, "output": all_files})
         elif path == "/api/question/add":
             sub_name = data.get("subject")
             q = data.get("question", {})

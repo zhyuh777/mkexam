@@ -13,3 +13,9 @@ node_modules/
 # Uploads
 uploads/*.png
 uploads/*.jpg
+
+# Reasonix internal
+.reasonix/
+
+# Output files
+output/

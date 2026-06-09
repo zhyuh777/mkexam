@@ -59,6 +59,12 @@ interface ExamHeader {
   political: string;
 }
 
+// 科目显示名映射
+const SUBJECT_NAMES: Record<string, string> = {
+  "单片机技术": "单片机技术及应用",
+  "电工电子技术": "电工电子技术",
+};
+
 function toggleHeaderForm(): void {
   const form = document.getElementById("header-form");
   const toggle = document.getElementById("header-toggle");
@@ -104,7 +110,7 @@ const POST = <T>(path: string, body: unknown) => api<T>("POST", path, body);
 const TYPE_NAMES: Record<string, string> = {
   choice: "选择题", tf: "判断题", fill: "填空题",
   calc: "计算题", short: "简答题", analysis: "分析题",
-  "分析题": "分析题", "应用题": "应用题",
+  "分析题": "分析题", "应用题": "应用题", "应用分析题": "应用分析题",
 };
 
 const CN_NUMS = ["一", "二", "三", "四", "五", "六"];
@@ -130,6 +136,11 @@ function getImageUrl(q: Question): string | null {
   // 使用服务端返回的 image_url
   if (q.image_url) return q.image_url;
   return null;
+}
+
+function hasAnswerSheet(): boolean {
+  const cb = document.getElementById("has-answer-sheet") as HTMLInputElement;
+  return cb ? cb.checked : true;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -223,7 +234,7 @@ function renderQuestions(questions: Question[]): void {
     const textEl = document.createElement("div");
     const plainText = q.q_plain || renderFormula(q.q || q.text || "");
     // 应用设计 / 代码题用等宽字体 + 保留格式
-    if (q.type === "应用题" || /#include|void main|sbit|while\(/.test(plainText)) {
+    if (q.type === "应用分析题" || q.type === "应用题" || /#include|void main|sbit|while\(/.test(plainText)) {
       textEl.className = "q-text code";
       textEl.textContent = plainText;
     } else {
@@ -270,7 +281,7 @@ async function loadExamConfig(): Promise<void> {
   for (const name of subjects) {
     const opt = document.createElement("option");
     opt.value = name;
-    opt.textContent = name;
+    opt.textContent = SUBJECT_NAMES[name] || name;
     sel.appendChild(opt);
   }
   if (subjects.length > 0) {
@@ -284,6 +295,12 @@ async function onExamSubjectChange(): Promise<void> {
   const name = (document.getElementById("exam-subject") as HTMLSelectElement).value;
   if (!name) return;
   const data = await GET<SubjectData>(`/api/subject?name=${encodeURIComponent(name)}`);
+  // 设置头部默认值
+  const displayName = SUBJECT_NAMES[name] || name;
+  const hCourse = document.getElementById("h-course") as HTMLInputElement;
+  const hYear = document.getElementById("h-year") as HTMLInputElement;
+  if (hCourse) hCourse.value = displayName;
+  if (hYear) hYear.value = name.includes("电工") ? "2025" : "2024";
   const rows = document.getElementById("type-rows")!;
   rows.innerHTML = "";
   tabRows = [];
@@ -291,10 +308,10 @@ async function onExamSubjectChange(): Promise<void> {
   const counts = data.counts;
   const defaults: Record<string, [number, number]> = {
     choice: [15, 2], tf: [5, 2], fill: [5, 2],
-    short: [2, 10], calc: [5, 10], analysis: [2, 10],
+    short: [3, 10], calc: [5, 10], analysis: [2, 10], "应用分析题": [2, 10],
   };
 
-  // 先处理预定义题型，再处理自定义题型（分析题、应用题等）
+  // 遍历全部题型（含自定义）
   const predefinedKeys = ["choice", "tf", "fill", "short", "calc", "analysis"];
   const seenKeys = new Set(predefinedKeys);
   const allKeys = [...predefinedKeys, ...Object.keys(counts).filter(k => !seenKeys.has(k))];
@@ -481,8 +498,8 @@ async function previewWord(): Promise<void> {
   const preview = document.getElementById("exam-preview")!;
   preview.innerHTML = "<div class='spinner'>生成Word预览...</div>";
   try {
-    const result = await POST<{ ok: boolean; output: string[] }>("/api/generate", { subject, sections: currentSections, count: 1, label: "preview", header: getHeaderInfo() });
-    const docxFile = (result.output || []).find((f: string) => f.endsWith('_preview.docx') && !f.includes('评分'));
+    const result = await POST<{ ok: boolean; output: string[] }>("/api/generate", { subject, sections: currentSections, count: 1, label: "preview", header: getHeaderInfo(), hasAnswerSheet: hasAnswerSheet() });
+    const docxFile = (result.output || []).find((f: string) => f.endsWith('preview卷.docx') && !f.includes('评分标准'));
     if (!docxFile) { preview.innerHTML = "<div class='preview-msg'>未生成Word文件</div>"; return; }
     preview.innerHTML = `<div id="word-preview-area" style="border:1px solid #d2d2d7;border-radius:10px;padding:16px;background:#fff;max-height:700px;overflow:auto;text-align:left"></div>`;
     await showDocxPreview("word-preview-area", docxFile);
@@ -503,8 +520,8 @@ async function previewScoring(): Promise<void> {
   const preview = document.getElementById("exam-preview")!;
   preview.innerHTML = "<div class='spinner'>生成评分标准预览...</div>";
   try {
-    const result = await POST<{ ok: boolean; output: string[] }>("/api/generate", { subject, sections: currentSections, count: 1, label: "preview", header: getHeaderInfo() });
-    const docxFile = (result.output || []).find((f: string) => f.endsWith('_preview评分标准.docx'));
+    const result = await POST<{ ok: boolean; output: string[] }>("/api/generate", { subject, sections: currentSections, count: 1, label: "preview", header: getHeaderInfo(), hasAnswerSheet: hasAnswerSheet() });
+    const docxFile = (result.output || []).find((f: string) => f.endsWith('preview卷评分标准.docx'));
     if (!docxFile) { preview.innerHTML = "<div class='preview-msg'>未生成评分标准文件</div>"; return; }
     preview.innerHTML = `<div id="scoring-preview-area" style="border:1px solid #d2d2d7;border-radius:10px;padding:16px;background:#fff;max-height:700px;overflow:auto;text-align:left"></div>`;
     await showDocxPreview("scoring-preview-area", docxFile);
@@ -524,7 +541,7 @@ async function doGenerate(): Promise<void> {
   preview.innerHTML = "<div class='spinner'>生成中...</div>";
 
   try {
-    const result = await POST<{ ok: boolean; output: string[] }>("/api/generate", { subject, sections: currentSections, count: n, header: getHeaderInfo() });
+    const result = await POST<{ ok: boolean; output: string[] }>("/api/generate", { subject, sections: currentSections, count: n, header: getHeaderInfo(), hasAnswerSheet: hasAnswerSheet() });
     let html = `<div class="preview-msg"><div class="preview-icon">✅</div><div>${n} 份试卷已生成</div><div style="margin-top:8px">`;
     const files = result.output || [];
     const docxFiles = files.filter((f: string) => f.endsWith('.docx'));
@@ -555,7 +572,7 @@ async function batchGenerate(): Promise<void> {
   const preview = document.getElementById("exam-preview")!;
   preview.innerHTML = "<div class='spinner'>批量出卷中...</div>";
   try {
-    const result = await POST<{ ok: boolean; output: string[] }>("/api/generate", { subject, sections: currentSections, count: n, header: getHeaderInfo() });
+    const result = await POST<{ ok: boolean; output: string[] }>("/api/generate", { subject, sections: currentSections, count: n, header: getHeaderInfo(), hasAnswerSheet: hasAnswerSheet() });
     const docxFiles = (result.output || []).filter((f: string) => f.endsWith('.docx') && !f.includes('preview'));
     let html = `<div class="preview-msg"><div class="preview-icon">✅</div><div>${n} 份试卷已生成</div><div style="margin-top:8px">`;
     if (docxFiles.length > 0) {

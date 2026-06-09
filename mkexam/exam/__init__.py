@@ -227,14 +227,27 @@ class PaperGenerator:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         self.header_info: dict = {}
+        self.has_answer_sheet: bool = True
+        self.current_label: str = ""
 
     def generate(self, sub_name: str, selected: dict, sections: list, label: str = ""):
         """生成一份试卷和评分标准"""
-        suffix = f"_{label}" if label else ""
-        stem = f"{sub_name}_期末试卷{suffix}"
+        course_map = {"单片机技术": "单片机技术及应用", "电工电子技术": "电工电子技术"}
+        display_name = course_map.get(sub_name, sub_name)
+        suffix = f"{label}卷" if label else ""
+        stem = f"湖北职业技术学院2025-2026学年第二学期《{display_name}》期末考试{suffix}"
+        self.current_label = label
+        # 按科目建子目录
+        sub_dir = os.path.join(self.output_dir, display_name)
+        os.makedirs(sub_dir, exist_ok=True)
+        old_dir = self.output_dir
+        self.output_dir = sub_dir
         self._make_paper(sub_name, selected, sections, stem)
+        if self.has_answer_sheet:
+            self._make_answer_sheet(sub_name, selected, sections, stem)
         self._make_scoring(sub_name, selected, sections, stem)
-        print(f"  ✓ {stem}")
+        self.output_dir = old_dir  # 恢复
+        print(f"  ✓ {display_name}/{stem}")
 
     def batch_generate(self, sub_name: str, selected_list: list[dict], sections: list, labels: list[str] = None):
         """批量生成多份试卷"""
@@ -247,7 +260,11 @@ class PaperGenerator:
     # ─── 试卷生成 ────────────────────────────────
 
     def _make_paper(self, sub_name, selected, sections, stem):
-        src = os.path.join(TPL_DIR, "2-1湖北职业技术学院2025-2026学年第二学期《课程名称》期末考试A卷（含答题纸）.docx")
+        if self.has_answer_sheet:
+            tpl = "3-1湖北职业技术学院2025-2026学年第二学期《课程名称》期末考试A卷.docx"
+        else:
+            tpl = "2-1湖北职业技术学院2025-2026学年第二学期《课程名称》期末考试A卷（含答题纸）.docx"
+        src = os.path.join(TPL_DIR, tpl)
         if os.path.exists(src):
             dst = os.path.join(self.output_dir, f"{stem}.docx")
             shutil.copy(src, dst)
@@ -261,8 +278,141 @@ class PaperGenerator:
 
         doc.save(os.path.join(self.output_dir, f"{stem}.docx"))
 
+    def _make_answer_sheet(self, sub_name, selected, sections, stem):
+        """生成独立答题纸"""
+        src = os.path.join(TPL_DIR, "3-2湖北职业技术学院2025-2026学年第二学期《课程名称》期末考试A卷答题纸.docx")
+        dst = os.path.join(self.output_dir, f"{stem}答题纸.docx")
+        if os.path.exists(src):
+            shutil.copy(src, dst)
+            doc = Document(dst)
+        else:
+            doc = Document()
+        self._replace_placeholders(doc, sub_name)
+
+        # 清除头部后的旧内容（含大量空白段）
+        to_remove = []
+        started = False
+        for para in doc.paragraphs:
+            if '说明' in para.text or '注意事项' in para.text:
+                started = True; continue
+            if started:
+                to_remove.append(para)
+        for p in to_remove:
+            try: p._element.getparent().remove(p._element)
+            except: pass
+        for ti in range(len(doc.tables) - 1, -1, -1):
+            try: doc.tables[ti]._tbl.getparent().remove(doc.tables[ti]._tbl)
+            except: pass
+
+        SECTION_DESCS = {
+            "choice": "从每小题给出的四个备选项中选出符合题目要求的一项。",
+            "tf": "判断以下说法是否正确，正确的打\"√\"，错误的打\"×\"。",
+            "fill": "将正确答案填写在横线上。",
+            "short": "简要回答下列问题。",
+            "calc": "写出必要的分析计算过程。",
+            "分析题": "分析下列问题并作答。",
+            "应用题": "根据给定条件完成程序设计。",
+            "应用分析题": "分析下列问题并作答。",
+        }
+        KEY_TITLES = {
+            "choice": "选择题", "tf": "判断题", "fill": "填空题",
+            "short": "简答题", "calc": "计算分析题",
+            "分析题": "分析题", "应用题": "应用题", "应用分析题": "应用分析题",
+        }
+        CN_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八"]
+        q_global = 0
+
+        for si, (title, key, count, score) in enumerate(sections):
+            qs = selected.get(key, [])
+            if not qs: continue
+            total_sec = len(qs) * score
+            if not title.strip():
+                cn = CN_NUMS[si] if si < len(CN_NUMS) else str(si + 1)
+                type_name = KEY_TITLES.get(key, key)
+                title = f"{cn}、{type_name}"
+
+            p = doc.add_paragraph()
+            p.add_run(f"{title}（每题{score}分，共{total_sec}分）").bold = True
+            desc = SECTION_DESCS.get(key, "")
+            if desc:
+                dr = p.add_run(f"  {desc}")
+                dr.bold = True
+
+            if key in ("choice", "tf"):
+                cols = 5
+                n_rows = (len(qs) + cols - 1) // cols
+                table = doc.add_table(rows=n_rows * 2, cols=cols)
+                from docx.oxml.ns import qn
+                # 设置紧凑列宽（缩约40%）
+                for row in table.rows:
+                    for cell in row.cells:
+                        cell.width = Inches(0.7)
+                tbl_pr = table._tbl.tblPr if table._tbl.tblPr is not None else OxmlElement('w:tblPr')
+                tbl_borders = OxmlElement('w:tblBorders')
+                for edge in ('top','left','bottom','right','insideH','insideV'):
+                    border = OxmlElement(f'w:{edge}')
+                    border.set(qn('w:val'), 'single')
+                    border.set(qn('w:sz'), '4')
+                    border.set(qn('w:space'), '0')
+                    border.set(qn('w:color'), '000000')
+                    tbl_borders.append(border)
+                tbl_pr.append(tbl_borders)
+                for qi in range(len(qs)):
+                    q_global += 1
+                    ri = (qi // cols) * 2; ci = qi % cols
+                    table.rows[ri].cells[ci].text = str(q_global)
+                    # 题号居中
+                    for pa in table.rows[ri].cells[ci].paragraphs:
+                        pa.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    table.rows[ri + 1].cells[ci].text = ""
+            elif key == "fill":
+                # 填空题：每行3空
+                per_row = 3
+                for row_start in range(0, len(qs), per_row):
+                    bp = doc.add_paragraph()
+                    row_qs = qs[row_start:row_start + per_row]
+                    for qi, q in enumerate(row_qs):
+                        q_global += 1
+                        if qi > 0:
+                            bp.add_run("  ")
+                        bp.add_run(f"{q_global}. ")
+                        r = bp.add_run(' ' * 20)
+                        r.underline = True
+            else:
+                blank_lines = 10 if key in ("应用分析题", "分析题", "应用题") else (5 if key in ("short", "calc") else 4)
+                for qi, q in enumerate(qs):
+                    q_global += 1
+                    text = q.get("q", q.get("text", ""))
+                    sub_qs = re.findall(r'(?:^|\n)\s*（(\d+)）', text)
+                    
+                    bp = doc.add_paragraph()
+                    run_text = f"{q_global}. "
+                    
+                    if sub_qs and key in ("应用分析题", "分析题", "应用题"):
+                        run_text += f"（1）"
+                        bp.add_run(run_text)
+                        sub_lines = blank_lines // len(sub_qs)
+                        for _ in range(sub_lines):
+                            doc.add_paragraph("")
+                        for si in range(1, len(sub_qs)):
+                            doc.add_paragraph("")
+                            sp = doc.add_paragraph()
+                            sp.add_run(f"  （{si+1}）")
+                            for _ in range(sub_lines):
+                                doc.add_paragraph("")
+                    else:
+                        bp.add_run(run_text)
+                        for _ in range(blank_lines):
+                            doc.add_paragraph("")
+
+        doc.save(dst)
+
     def _make_scoring(self, sub_name, selected, sections, stem):
-        src = os.path.join(TPL_DIR, "2-2湖北职业技术学院2025-2026学年第二学期《课程名称》期末考试A卷评分标准（含参考答案）.docx")
+        if self.has_answer_sheet:
+            tpl = "3-3湖北职业技术学院2025-2026学年第二学期《课程名称》期末考试A卷评分标准（含参考答案）.docx"
+        else:
+            tpl = "2-2湖北职业技术学院2025-2026学年第二学期《课程名称》期末考试A卷评分标准（含参考答案）.docx"
+        src = os.path.join(TPL_DIR, tpl)
         if os.path.exists(src):
             dst = os.path.join(self.output_dir, f"{stem}评分标准.docx")
             shutil.copy(src, dst)
@@ -273,6 +423,37 @@ class PaperGenerator:
         self._replace_placeholders(doc, sub_name)
         # 清除旧模板内容，从零构建答案部分
         self._clean_scoring_template(doc, selected, sections)
+        # 在「湖北职业技术学院」标题后插入副标题
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+        from docx.shared import Pt
+        for para in doc.paragraphs:
+            if '湖北职业技术学院' in para.text:
+                new_p = OxmlElement('w:p')
+                pPr = OxmlElement('w:pPr')
+                jc = OxmlElement('w:jc')
+                jc.set(qn('w:val'), 'center')
+                pPr.append(jc)
+                new_p.append(pPr)
+                r_elem = OxmlElement('w:r')
+                rPr = OxmlElement('w:rPr')
+                rFonts = OxmlElement('w:rFonts')
+                rFonts.set(qn('w:eastAsia'), '黑体')
+                rFonts.set(qn('w:ascii'), '黑体')
+                rPr.append(rFonts)
+                sz = OxmlElement('w:sz')
+                sz.set(qn('w:val'), '32')
+                rPr.append(sz)
+                szCs = OxmlElement('w:szCs')
+                szCs.set(qn('w:val'), '32')
+                rPr.append(szCs)
+                r_elem.append(rPr)
+                t_elem = OxmlElement('w:t')
+                t_elem.text = '评分标准（含参考答案）'
+                r_elem.append(t_elem)
+                new_p.append(r_elem)
+                para._p.addnext(new_p)
+                break
         self._build_scoring_sections(doc, selected, sections)
 
         doc.save(os.path.join(self.output_dir, f"{stem}评分标准.docx"))
@@ -286,6 +467,20 @@ class PaperGenerator:
             for run in para.runs:
                 if "课程名称" in run.text:
                     run.text = run.text.replace("课程名称", sub_name)
+        # 替换 A卷/B卷 标记
+        if self.current_label:
+            vol = f"{self.current_label}卷"
+            from lxml import etree
+            body = doc.element.find('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}body')
+            if body is None:
+                body = doc.element
+            for elem in body.iter('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
+                if elem.text:
+                    t = elem.text.strip()
+                    if t in ('A卷', 'A 卷'):
+                        elem.text = vol
+                    elif t in ('B卷', 'B 卷'):
+                        elem.text = vol
         # 用lxml替换占位符（解决label和value在不同run的问题）
         if h.get("course") or h.get("author") or h.get("year") or h.get("dept"):
             try:
@@ -304,18 +499,32 @@ class PaperGenerator:
                     elif '院系' in t: last_label = 'dept'
                     if t == 'XXXXX':
                         pad = 6
+                        if last_label == 'course':
+                            pad = 4
+                        elif last_label in ('author', 'reviewer', 'political'):
+                            pad = 8
+                        val = ''
                         if last_label == 'course' and h.get('course'):
-                            elem.text = ' ' * pad + h['course'] + ' ' * pad
+                            val = h['course']
                         elif last_label == 'author' and h.get('author'):
-                            elem.text = ' ' * pad + h['author'] + ' ' * pad
+                            val = h['author']
                         elif last_label == 'reviewer' and h.get('reviewer'):
-                            elem.text = ' ' * pad + h['reviewer'] + ' ' * pad
+                            val = h['reviewer']
                         elif last_label == 'political' and h.get('political'):
-                            elem.text = ' ' * pad + h['political'] + ' ' * pad
+                            val = h['political']
+                        if val:
+                            elem.text = ' ' * pad + val + ' ' * pad
                     elif 'XXXXX学院XXXXX专业' in elem.text and h.get('dept'):
-                        elem.text = elem.text.replace('XXXXX学院XXXXX专业', h['dept'])
+                        raw = elem.text
+                        elem.text = raw.replace('XXXXX学院XXXXX专业', h['dept'])
                     elif '202X' in elem.text and h.get('year'):
-                        elem.text = elem.text.replace('202X', h['year'])
+                        raw = elem.text
+                        elem.text = raw.replace('202X', h['year'])
+                    # 统一清理标签周围的空格
+                    if '院系' in elem.text or '命题人' in elem.text or '审核人' in elem.text or '政审' in elem.text or '考试课程' in elem.text:
+                        elem.text = elem.text.strip()
+                    if elem.text and elem.text.strip() in ('A卷', 'A 卷', 'B卷', 'B 卷'):
+                        elem.text = elem.text.strip()
             except Exception as e:
                 print(f"  头部替换失败: {e}")
 
@@ -369,6 +578,7 @@ class PaperGenerator:
             "analysis": "分析下列问题并作答，要求逻辑清晰、表述完整。",
             "分析题": "分析下列问题并作答，要求逻辑清晰、表述完整。",
             "应用题": "根据给定条件完成程序设计或代码填空，代码应符合C51语法规范。",
+            "应用分析题": "应用分析下列问题并作答，要求逻辑清晰、表述完整。",
         }
 
         q_num = 0  # 全局题号（跨题型连续编号）
@@ -386,12 +596,11 @@ class PaperGenerator:
             r = p.add_run(f"{title}（每题{score}分，共{total_sec}分）")
             r.bold = True
 
-            # 大题描述（跟标题同一行，不另起段落，如A卷样式）
+            # 大题描述（跟标题同一行，统一粗体）
             desc = SECTION_DESCS.get(key, "")
             if desc:
                 dr = p.add_run(f"  {desc}")
-                dr.font.size = Pt(10)
-                dr.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+                dr.bold = True
 
             # 选择题答案格放在题目上方
             if key == "choice":
@@ -435,6 +644,40 @@ class PaperGenerator:
                 # 去掉 【图X·题型】 前缀
                 text = re.sub(r'^【[^】]+】\s*', '', text)
                 score_label = f"（{score}分）" if key not in ("choice", "tf", "fill") else ""
+                # 多小问：将总分拆分到每小问后面
+                if key not in ("choice", "tf", "fill") and "（" in text:
+                    # 匹配行首或换行后的（数字），作为小问标记
+                    sub_qs = re.findall(r'(?:^|\n)\s*（(\d+)）', text)
+                    if sub_qs:
+                        n = len(sub_qs)
+                        # 优先用 exp 字段解析分值分布
+                        exp = q.get("exp", "")
+                        scores_per_q = []
+                        if exp:
+                            # 解析 "（1）5分；（2）5分" 格式
+                            parts = re.findall(r'（\d+）\s*(\d+)\s*分', exp)
+                            if parts and len(parts) == n:
+                                scores_per_q = [int(p) for p in parts]
+                        if not scores_per_q:
+                            # 均分
+                            base = score // n
+                            remain = score % n
+                            scores_per_q = [base + (1 if i < remain else 0) for i in range(n)]
+                        # 在每小问句尾标分
+                        def add_score_tail(m):
+                            num = int(m.group(2))
+                            idx = num - 1
+                            prefix = m.group(1)  # 前导空格+（数字）
+                            tail = m.group(3)    # 该小问的正文
+                            if 0 <= idx < len(scores_per_q):
+                                return f"{prefix}{tail}（{scores_per_q[idx]}分）"
+                            return m.group(0)
+                        # 按小问拆分：前导 + (数字) + 正文(到下一个(数字)或结尾)
+                        text = re.sub(
+                            r'(?:^|\n)(\s*（(\d+)）)(.*?)(?=$|\n\s*（\d+）)',
+                            add_score_tail, text, flags=re.DOTALL
+                        )
+                        score_label = ""
                 p_q = doc.add_paragraph()
                 p_q.add_run(f"{q_num}. ")
                 # 应用题：分值加在题干描述后，不挂在代码尾巴
@@ -452,10 +695,37 @@ class PaperGenerator:
                         p_q.add_run(f"  {score_label}")
                 if key == "choice":
                     opts = q.get("opts", q.get("options", []))
-                    for oi, opt in enumerate(opts[:4]):
-                        op = doc.add_paragraph()
-                        op.add_run(f"    {['A','B','C','D'][oi]}. ")
-                        self._add_formatted_text(op, opt)
+                    # 统一制表符对齐（所有选择题选项用同一位置）
+                    def _add_tab(para):
+                        pPr = para._p.get_or_add_pPr()
+                        tabs = OxmlElement('w:tabs')
+                        tab = OxmlElement('w:tab')
+                        tab.set(qn('w:val'), 'left')
+                        tab.set(qn('w:pos'), '4422')  # 20%页宽
+                        tabs.append(tab)
+                        pPr.append(tabs)
+                    def _add_tab_run(para):
+                        """在段落中添加一个制表符元素"""
+                        r = OxmlElement('w:r')
+                        tab_el = OxmlElement('w:tab')
+                        r.append(tab_el)
+                        para._p.append(r)
+                    # A+B 一行
+                    op = doc.add_paragraph()
+                    _add_tab(op)
+                    op.add_run("A. ")
+                    self._add_formatted_text(op, opts[0])
+                    _add_tab_run(op)
+                    op.add_run("B. ")
+                    self._add_formatted_text(op, opts[1])
+                    # C+D 一行
+                    cp = doc.add_paragraph()
+                    _add_tab(cp)
+                    cp.add_run("C. ")
+                    self._add_formatted_text(cp, opts[2])
+                    _add_tab_run(cp)
+                    cp.add_run("D. ")
+                    self._add_formatted_text(cp, opts[3])
                 if key == "choice":
                     pass  # 选项已在上方处理
                 elif key == "tf":
@@ -465,11 +735,11 @@ class PaperGenerator:
                     pass  # 填空题题干已含下划线，不再追加
                 else:
                     # 简答题/分析题/应用题预留充裕作答空间
-                    blank_lines = 8 if key in ("short", "分析题", "应用题") else 4
+                    blank_lines = 8 if key in ("short", "分析题", "应用题", "应用分析题") else 4
                     for _ in range(blank_lines):
                         doc.add_paragraph("")
                 # 图在题目下方（仅作图题）
-                if key in ("分析题", "应用题", "calc"):
+                if key in ("分析题", "应用题", "应用分析题", "calc"):
                     self._insert_figure(doc, q)
                 # 判断题、填空题之间不空行
                 if key not in ("tf", "fill"):
@@ -608,23 +878,58 @@ class PaperGenerator:
             except:
                 pass
 
-    def _make_answer_table(self, doc, title, qs, score, is_tf=False):
-        """创建答案表格"""
+        # 删除头部后的所有空段落（无论答案在哪里）
+        try:
+            body = doc.element.body
+            children = list(body)
+            # 找到最后一个非空段落
+            last_nonempty = -1
+            for i, child in enumerate(children):
+                if child.tag != '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p':
+                    continue
+                texts = child.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t')
+                text = ''.join(t.text or '' for t in texts)
+                if text.strip():
+                    last_nonempty = i
+            # 从最后往前删空段落
+            if last_nonempty >= 0:
+                for i in range(len(children) - 1, last_nonempty, -1):
+                    child = list(body)[i]
+                    if child.tag == '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p':
+                        texts = child.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t')
+                        text = ''.join(t.text or '' for t in texts)
+                        if not text.strip():
+                            body.remove(child)
+        except Exception as e:
+            print(f"  清理空段落失败: {e}")
+
+    def _make_answer_table(self, doc, title, qs, score, is_tf=False, q_start=0):
+        """创建答案表格（全局编号）"""
         total_sec = len(qs) * score
         p = doc.add_paragraph()
         r = p.add_run(f"{title}（每题{score}分，共{total_sec}分）")
         r.bold = True
 
+        from docx.oxml.ns import qn
         cols = 10
         n_qs = len(qs)
         n_rows = (n_qs + cols - 1) // cols
         table = doc.add_table(rows=n_rows * 2, cols=cols)
+        tbl_pr = table._tbl.tblPr if table._tbl.tblPr is not None else OxmlElement('w:tblPr')
+        tbl_borders = OxmlElement('w:tblBorders')
+        for edge in ('top','left','bottom','right','insideH','insideV'):
+            border = OxmlElement(f'w:{edge}')
+            border.set(qn('w:val'), 'single')
+            border.set(qn('w:sz'), '4')
+            border.set(qn('w:space'), '0')
+            border.set(qn('w:color'), '000000')
+            tbl_borders.append(border)
+        tbl_pr.append(tbl_borders)
 
         for qi, q in enumerate(qs):
             ri = (qi // cols) * 2
             ci = qi % cols
-            # 题号行
-            table.rows[ri].cells[ci].text = str(qi + 1)
+            table.rows[ri].cells[ci].text = str(q_start + qi + 1)
             for pa in table.rows[ri].cells[ci].paragraphs:
                 from docx.enum.text import WD_ALIGN_PARAGRAPH
                 pa.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -651,16 +956,16 @@ class PaperGenerator:
         KEY_TITLES = {
             "choice": "选择题", "tf": "判断题", "fill": "填空题",
             "short": "简答题", "calc": "计算分析题", "analysis": "分析题",
-            "分析题": "分析题", "应用题": "应用题",
+            "分析题": "分析题", "应用题": "应用题", "应用分析题": "应用分析题",
         }
         CN_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八"]
 
+        q_global = 0
         for si, (title, key, count, score) in enumerate(sections):
             qs = selected.get(key, [])
             if not qs:
                 continue
 
-            # title 为空时自动生成
             if not title.strip():
                 cn = CN_NUMS[si] if si < len(CN_NUMS) else str(si + 1)
                 type_name = KEY_TITLES.get(key, key)
@@ -669,11 +974,13 @@ class PaperGenerator:
 
             # 选择题——用表格填答案
             if key == "choice":
-                self._make_answer_table(doc, title, qs, score, is_tf=False)
+                self._make_answer_table(doc, title, qs, score, is_tf=False, q_start=q_global)
+                q_global += len(qs)
 
             # 判断题——用表格填答案
             elif key == "tf":
-                self._make_answer_table(doc, title, qs, score, is_tf=True)
+                self._make_answer_table(doc, title, qs, score, is_tf=True, q_start=q_global)
+                q_global += len(qs)
 
             # 其他题型——用段落列出答案
             else:
@@ -681,25 +988,88 @@ class PaperGenerator:
                 r = p.add_run(f"{title}答案（每题{score}分，共{total_sec}分）")
                 r.bold = True
                 for i, q in enumerate(qs, 1):
-                    ans = q.get("ans", q.get("answer", ""))
-                    steps = self._format_answer_steps(str(ans), score)
-                    doc.add_paragraph(f"  {i}.（共{score}分）")
-                    for step_text in steps:
-                        doc.add_paragraph(f"    {step_text}")
+                    q_global += 1
+                    # 填空题：直接显示答案和分值，不拆得分点
+                    if key == "fill":
+                        ans = q.get("ans", q.get("answer", ""))
+                        ans_text = str(ans) if str(ans) != "见解析" else ""
+                        doc.add_paragraph(f"  {q_global}.  {ans_text} （{score}分）")
+                        continue
+                    
+                    exp = q.get("exp", "")
+                    cn_nums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩']
+                    
+                    if exp:
+                        doc.add_paragraph(f"  {q_global}. （共{score}分）")
+                        # 分割得分点：支持（数字分）和 数字分 两种格式
+                        points = []
+                        buf = ''
+                        for ch in exp:
+                            buf += ch
+                            m = re.search(r'（\d+分）$', buf)
+                            if m:
+                                pre = buf[:m.start()]
+                                if pre.strip():
+                                    points.append(pre.strip())
+                                points.append(m.group())
+                                buf = ''
+                        if buf.strip():
+                            points.append(buf.strip())
+                        # 合并孤立的（X分）回前一项
+                        merged = []
+                        for p in points:
+                            if re.match(r'^（\d+分）$', p.strip()) and merged:
+                                merged[-1] += p
+                            else:
+                                merged.append(p)
+                        points = merged
+                        # 回退方案
+                        if not points or all(len(p) < 3 for p in points):
+                            pts2 = re.split(r'(?<=\d分)(?=\S)', exp)
+                            points = [p.strip() for p in pts2 if p.strip()]
+                        if len(points) <= 1:
+                            pts3 = re.findall(r'[^ ]+?\d+分', exp)
+                            if pts3: points = pts3
+                        for pi, pt in enumerate(points):
+                            pt = pt.strip()
+                            if not pt: continue
+                            if not re.search(r'（\d+分）\s*$', pt):
+                                pt = re.sub(r'(\d+)分\s*$', r'（\1分）', pt)
+                            marker = cn_nums[pi] if pi < len(cn_nums) else f'[{pi+1}]'
+                            doc.add_paragraph(f"    {marker}{pt}")
+                    else:
+                        ans = q.get("ans", q.get("answer", ""))
+                        ans_text = str(ans) if str(ans) != "见解析" else ""
+                        explanation = q.get("explanation", "")
+                        main_text = ans_text or explanation or ""
+                        if main_text:
+                            doc.add_paragraph(f"  {q_global}.  {main_text} （{score}分）")
+                        else:
+                            doc.add_paragraph(f"  {q_global}. （{score}分）")
 
     def _insert_figure(self, doc, q):
         """插入配图 — 多种来源"""
         import re
+        from PIL import Image as PILImage
 
         def _try_insert(paths: list) -> bool:
             for p in paths:
                 if os.path.exists(p):
                     try:
-                        doc.add_picture(p, width=Inches(3.5))
+                        img = PILImage.open(p)
+                        w, h = img.size
+                        ratio = w / h
+                        if ratio > 1.2:  # 横图
+                            pw = Inches(6.0)
+                        elif ratio < 0.8:  # 竖图
+                            pw = Inches(4.0)
+                        else:  # 方图
+                            pw = Inches(4.0)
+                        doc.add_picture(p, width=pw)
                         doc.add_paragraph("")
                         return True
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f"  插图失败 {p}: {e}")
             return False
 
         # 1) imgs 字段（电工电子技术: "figures/图NEW-01.png"）
