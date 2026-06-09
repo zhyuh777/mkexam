@@ -308,7 +308,7 @@ async function onExamSubjectChange(): Promise<void> {
   const counts = data.counts;
   const defaults: Record<string, [number, number]> = {
     choice: [15, 2], tf: [5, 2], fill: [5, 2],
-    short: [3, 10], calc: [5, 10], analysis: [2, 10], "应用分析题": [2, 10],
+    short: [5, 6], calc: [5, 10], analysis: [2, 10], "应用分析题": [2, 10],
   };
 
   // 遍历全部题型（含自定义）

@@ -1,26 +1,27 @@
 [
   {
-    "title": "一、单项选择题",
     "key": "choice",
     "count": 15,
     "score": 2
   },
   {
-    "title": "二、判断题",
     "key": "tf",
     "count": 5,
     "score": 2
   },
   {
-    "title": "三、填空题",
     "key": "fill",
     "count": 5,
     "score": 2
   },
   {
-    "title": "四、计算分析题",
-    "key": "calc",
+    "key": "short",
     "count": 5,
+    "score": 6
+  },
+  {
+    "key": "应用分析题",
+    "count": 2,
     "score": 10
   }
 ]
