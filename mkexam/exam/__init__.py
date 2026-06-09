@@ -581,7 +581,7 @@ class PaperGenerator:
             "应用分析题": "应用分析下列问题并作答，要求逻辑清晰、表述完整。",
         }
 
-        q_num = 0  # 全局题号（跨题型连续编号）
+        q_abc = 0  # 选择/填空/判断连续编号
         for si, (title, key, count, score) in enumerate(sections):
             qs = selected.get(key, [])
             if not qs: continue
@@ -595,104 +595,86 @@ class PaperGenerator:
             p = doc.add_paragraph()
             r = p.add_run(f"{title}（每题{score}分，共{total_sec}分）")
             r.bold = True
+            r.font.name = '黑体'
+            r._r.rPr.rFonts.set(qn('w:eastAsia'), '黑体')
 
             # 大题描述（跟标题同一行，统一粗体）
             desc = SECTION_DESCS.get(key, "")
             if desc:
                 dr = p.add_run(f"  {desc}")
                 dr.bold = True
+                dr.font.name = '黑体'
+                dr._r.rPr.rFonts.set(qn('w:eastAsia'), '黑体')
 
-            # 选择题答案格放在题目上方
-            if key == "choice":
-                doc.add_paragraph("")
-                p_label = doc.add_paragraph()
-                r_label = p_label.add_run("选择题答案填写区：")
-                r_label.bold = True
-
-                n_qs = len(qs)
-                cols = 10
-                n_rows = (n_qs + cols - 1) // cols
-                table = doc.add_table(rows=n_rows * 2, cols=cols)
-                tbl = table._tbl
-                tblPr = tbl.tblPr if tbl.tblPr is not None else OxmlElement('w:tblPr')
-                tblBorders = OxmlElement('w:tblBorders')
-                for edge in ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'):
-                    border = OxmlElement(f'w:{edge}')
-                    border.set(qn('w:val'), 'single')
-                    border.set(qn('w:sz'), '4')
-                    border.set(qn('w:space'), '0')
-                    border.set(qn('w:color'), '000000')
-                    tblBorders.append(border)
-                tblPr.append(tblBorders)
-
-                for q_idx in range(n_qs):
-                    row_idx = (q_idx // cols) * 2
-                    col_idx = q_idx % cols
-                    num_cell = table.rows[row_idx].cells[col_idx]
-                    num_cell.text = str(q_idx + 1)
-                    for pa in num_cell.paragraphs:
-                        pa.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    ans_cell = table.rows[row_idx + 1].cells[col_idx]
-                    ans_cell.text = ""
-                    for pa in ans_cell.paragraphs:
-                        pa.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                doc.add_paragraph("")
+            # 试题卷不显示选择题答案表格（答题纸中已包含）
 
             for q in qs:
-                q_num += 1
+                if key in ("choice", "tf", "fill"):
+                    q_abc += 1
+                    display_q = q_abc
+                else:
+                    # 大题内每道题递增编号（大题重新从1开始）
+                    display_q = qs.index(q) + 1
                 text = q.get("q", q.get("text", ""))
                 # 去掉 【图X·题型】 前缀
                 text = re.sub(r'^【[^】]+】\s*', '', text)
                 score_label = f"（{score}分）" if key not in ("choice", "tf", "fill") else ""
-                # 多小问：将总分拆分到每小问后面
-                if key not in ("choice", "tf", "fill") and "（" in text:
-                    # 匹配行首或换行后的（数字），作为小问标记
+                # 多小问：拆分为独立段落（每小问独立一行）
+                sub_segments = [(text, score_label)]
+                if key not in ("choice", "tf", "fill"):
                     sub_qs = re.findall(r'(?:^|\n)\s*（(\d+)）', text)
                     if sub_qs:
                         n = len(sub_qs)
-                        # 优先用 exp 字段解析分值分布
                         exp = q.get("exp", "")
                         scores_per_q = []
                         if exp:
-                            # 解析 "（1）5分；（2）5分" 格式
                             parts = re.findall(r'（\d+）\s*(\d+)\s*分', exp)
                             if parts and len(parts) == n:
                                 scores_per_q = [int(p) for p in parts]
                         if not scores_per_q:
-                            # 均分
                             base = score // n
                             remain = score % n
                             scores_per_q = [base + (1 if i < remain else 0) for i in range(n)]
-                        # 在每小问句尾标分
-                        def add_score_tail(m):
-                            num = int(m.group(2))
-                            idx = num - 1
-                            prefix = m.group(1)  # 前导空格+（数字）
-                            tail = m.group(3)    # 该小问的正文
-                            if 0 <= idx < len(scores_per_q):
-                                return f"{prefix}{tail}（{scores_per_q[idx]}分）"
-                            return m.group(0)
-                        # 按小问拆分：前导 + (数字) + 正文(到下一个(数字)或结尾)
-                        text = re.sub(
-                            r'(?:^|\n)(\s*（(\d+)）)(.*?)(?=$|\n\s*（\d+）)',
-                            add_score_tail, text, flags=re.DOTALL
-                        )
-                        score_label = ""
+                        # 提取题干前缀（第一个小问之前的内容）
+                        first_m = re.search(r'\n\s*（(\d+)）', text)
+                        if first_m and first_m.start() > 0:
+                            prefix = text[:first_m.start()].strip()
+                            if prefix:
+                                sub_segments = [(prefix, '')]
+                            else:
+                                sub_segments = []
+                        else:
+                            sub_segments = []
+                        # 逐小问拆分
+                        remaining = text
+                        for si in range(n):
+                            m = re.search(r'(?:^|\n)(\s*（(\d+)）)', remaining)
+                            if not m: break
+                            after_marker = remaining[m.end():]
+                            next_m = re.search(r'\n\s*（(\d+)）', after_marker)
+                            if next_m:
+                                q_body = after_marker[:next_m.start()].strip()
+                            else:
+                                q_body = after_marker.strip()
+                            sub_segments.append((f"（{m.group(2)}）{q_body}", scores_per_q[si]))
+                            if next_m:
+                                remaining = after_marker[next_m.start():]
+                            else:
+                                break
                 p_q = doc.add_paragraph()
-                p_q.add_run(f"{q_num}. ")
-                # 应用题：分值加在题干描述后，不挂在代码尾巴
-                if key == "应用题" and "\n\n" in text:
-                    desc_part, code_part = text.split("\n\n", 1)
-                    self._add_formatted_text(p_q, desc_part)
-                    if score_label:
-                        p_q.add_run(f"  {score_label}")
-                    doc.add_paragraph("")
-                    p_code = doc.add_paragraph()
-                    self._add_formatted_text(p_code, code_part)
-                else:
-                    self._add_formatted_text(p_q, text)
-                    if score_label:
-                        p_q.add_run(f"  {score_label}")
+                p_q.add_run(f"{display_q}. ")
+                # 渲染每个段落
+                for seg_i, (seg_text, seg_score) in enumerate(sub_segments):
+                    if seg_i > 0:
+                        doc.add_paragraph("")
+                        sp = doc.add_paragraph()
+                    else:
+                        sp = p_q
+                    self._add_formatted_text(sp, seg_text)
+                    if isinstance(seg_score, int):
+                        sp.add_run(f"  （{seg_score}分）")
+                    elif seg_score:
+                        sp.add_run(f"  {seg_score}")
                 if key == "choice":
                     opts = q.get("opts", q.get("options", []))
                     # 统一制表符对齐（所有选择题选项用同一位置）
@@ -733,17 +715,9 @@ class PaperGenerator:
                     p_q.add_run("  （  ）")
                 elif key == "fill":
                     pass  # 填空题题干已含下划线，不再追加
-                else:
-                    # 简答题/分析题/应用题预留充裕作答空间
-                    blank_lines = 8 if key in ("short", "分析题", "应用题", "应用分析题") else 4
-                    for _ in range(blank_lines):
-                        doc.add_paragraph("")
                 # 图在题目下方（仅作图题）
                 if key in ("分析题", "应用题", "应用分析题", "calc"):
                     self._insert_figure(doc, q)
-                # 判断题、填空题之间不空行
-                if key not in ("tf", "fill"):
-                    doc.add_paragraph("")
 
     def _add_formatted_text(self, para, text):
         """将含 $...$ 的文本分段写入段落，公式部分转 Unicode"""
