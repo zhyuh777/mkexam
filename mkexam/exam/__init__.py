@@ -300,7 +300,9 @@ class PaperGenerator:
         for p in to_remove:
             try: p._element.getparent().remove(p._element)
             except: pass
-        for ti in range(len(doc.tables) - 1, -1, -1):
+        # 保留第一个表格（得分汇总表）用于动态更新，删除其余旧表格
+        score_table = doc.tables[0] if doc.tables else None
+        for ti in range(len(doc.tables) - 1, 0, -1):
             try: doc.tables[ti]._tbl.getparent().remove(doc.tables[ti]._tbl)
             except: pass
 
@@ -321,6 +323,12 @@ class PaperGenerator:
         }
         CN_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八"]
         q_global = 0
+
+        def _keep_with_next(para):
+            """防止段落与其后续内容跨页断开"""
+            pPr = para._p.get_or_add_pPr()
+            kn = OxmlElement('w:keepNext')
+            pPr.append(kn)
 
         for si, (title, key, count, score) in enumerate(sections):
             qs = selected.get(key, [])
@@ -370,6 +378,7 @@ class PaperGenerator:
                 per_row = 3
                 for row_start in range(0, len(qs), per_row):
                     bp = doc.add_paragraph()
+                    _keep_with_next(bp)
                     row_qs = qs[row_start:row_start + per_row]
                     for qi, q in enumerate(row_qs):
                         q_global += 1
@@ -379,31 +388,67 @@ class PaperGenerator:
                         r = bp.add_run(' ' * 20)
                         r.underline = True
             else:
-                blank_lines = 10 if key in ("应用分析题", "分析题", "应用题") else (5 if key in ("short", "calc") else 4)
+                blank_lines = 10 if key in ("short", "calc") else (10 if key in ("分析题", "应用题") else 4)
+                sub_blank = 10 if key in ("应用分析题", "分析题", "应用题") else 0
                 for qi, q in enumerate(qs):
                     q_global += 1
                     text = q.get("q", q.get("text", ""))
                     sub_qs = re.findall(r'(?:^|\n)\s*（(\d+)）', text)
                     
                     bp = doc.add_paragraph()
+                    _keep_with_next(bp)
                     run_text = f"{q_global}. "
                     
                     if sub_qs and key in ("应用分析题", "分析题", "应用题"):
                         run_text += f"（1）"
                         bp.add_run(run_text)
-                        sub_lines = blank_lines // len(sub_qs)
+                        sub_lines = sub_blank if sub_blank else (blank_lines // len(sub_qs))
                         for _ in range(sub_lines):
-                            doc.add_paragraph("")
+                            ep = doc.add_paragraph("")
+                            _keep_with_next(ep)
                         for si in range(1, len(sub_qs)):
                             doc.add_paragraph("")
                             sp = doc.add_paragraph()
+                            _keep_with_next(sp)
                             sp.add_run(f"  （{si+1}）")
                             for _ in range(sub_lines):
-                                doc.add_paragraph("")
+                                ep = doc.add_paragraph("")
+                                _keep_with_next(ep)
                     else:
                         bp.add_run(run_text)
                         for _ in range(blank_lines):
-                            doc.add_paragraph("")
+                            ep = doc.add_paragraph("")
+                            _keep_with_next(ep)
+
+        # 更新得分汇总表（只填题型和总分，得分留空供阅卷手写）
+        if score_table is not None and sections:
+            try:
+                row0 = score_table.rows[0]
+                row1 = score_table.rows[1]
+                cn = ['一','二','三','四','五','六','七','八']
+                total_score = 0
+                # 填题型名称和合计分数，清空得分格
+                for ci, (title, key, count, score) in enumerate(sections):
+                    col = ci + 1
+                    if col >= len(row0.cells) - 1: break
+                    sec_score = len(selected.get(key, [])) * score
+                    total_score += sec_score
+                    row0.cells[col].text = cn[ci] if ci < len(cn) else str(ci+1)
+                    row1.cells[col].text = ''  # 得分空着
+                # 清空剩余列
+                for ci in range(len(sections), len(row0.cells) - 2):
+                    row0.cells[ci + 1].text = ''
+                # 总分列（总分标在第一行，第二行留空）
+                if len(row0.cells) >= len(sections) + 2:
+                    row0.cells[len(sections) + 1].text = '总分'
+                    row1.cells[len(sections) + 1].text = ''
+                # 所有单元格居中
+                for row in score_table.rows:
+                    for cell in row.cells:
+                        for pa in cell.paragraphs:
+                            pa.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            except Exception as e:
+                print(f"  更新得分表失败: {e}")
 
         doc.save(dst)
 
@@ -586,7 +631,6 @@ class PaperGenerator:
             qs = selected.get(key, [])
             if not qs: continue
             total_sec = len(qs) * score
-            if si > 0: doc.add_paragraph("")
             # title 为空时自动生成 "一、选择题" 格式
             if not title.strip():
                 cn = CN_NUMS[si] if si < len(CN_NUMS) else str(si + 1)
@@ -597,11 +641,12 @@ class PaperGenerator:
             r.bold = True
             r.font.name = '黑体'
             r._r.rPr.rFonts.set(qn('w:eastAsia'), '黑体')
+            r.font.size = Pt(12)  # 小四号
 
             # 大题描述（跟标题同一行，统一粗体）
             desc = SECTION_DESCS.get(key, "")
             if desc:
-                dr = p.add_run(f"  {desc}")
+                dr = p.add_run(f"\n{desc}")
                 dr.bold = True
                 dr.font.name = '黑体'
                 dr._r.rPr.rFonts.set(qn('w:eastAsia'), '黑体')
@@ -636,17 +681,17 @@ class PaperGenerator:
                             remain = score % n
                             scores_per_q = [base + (1 if i < remain else 0) for i in range(n)]
                         # 提取题干前缀（第一个小问之前的内容）
-                        first_m = re.search(r'\n\s*（(\d+)）', text)
-                        if first_m and first_m.start() > 0:
-                            prefix = text[:first_m.start()].strip()
-                            if prefix:
-                                sub_segments = [(prefix, '')]
+                        first_m = re.search(r'(?:^|\n)\s*（(\d+)）', text)
+                        if first_m:
+                            if first_m.start() > 0:
+                                prefix = text[:first_m.start()].strip()
+                                sub_segments = [(prefix, '')] if prefix else []
                             else:
                                 sub_segments = []
                         else:
                             sub_segments = []
-                        # 逐小问拆分
-                        remaining = text
+                        # 逐小问拆分：从第一个小问开始
+                        remaining = text if first_m is None else text
                         for si in range(n):
                             m = re.search(r'(?:^|\n)(\s*（(\d+)）)', remaining)
                             if not m: break
@@ -663,10 +708,9 @@ class PaperGenerator:
                                 break
                 p_q = doc.add_paragraph()
                 p_q.add_run(f"{display_q}. ")
-                # 渲染每个段落
+                # 渲染每个段落（子问题与题干紧密排列）
                 for seg_i, (seg_text, seg_score) in enumerate(sub_segments):
                     if seg_i > 0:
-                        doc.add_paragraph("")
                         sp = doc.add_paragraph()
                     else:
                         sp = p_q
@@ -975,7 +1019,7 @@ class PaperGenerator:
                     
                     if exp:
                         doc.add_paragraph(f"  {q_global}. （共{score}分）")
-                        # 分割得分点：支持（数字分）和 数字分 两种格式
+                        # 分割得分点
                         points = []
                         buf = ''
                         for ch in exp:
@@ -989,7 +1033,6 @@ class PaperGenerator:
                                 buf = ''
                         if buf.strip():
                             points.append(buf.strip())
-                        # 合并孤立的（X分）回前一项
                         merged = []
                         for p in points:
                             if re.match(r'^（\d+分）$', p.strip()) and merged:
@@ -997,20 +1040,36 @@ class PaperGenerator:
                             else:
                                 merged.append(p)
                         points = merged
-                        # 回退方案
                         if not points or all(len(p) < 3 for p in points):
                             pts2 = re.split(r'(?<=\d分)(?=\S)', exp)
                             points = [p.strip() for p in pts2 if p.strip()]
                         if len(points) <= 1:
                             pts3 = re.findall(r'[^ ]+?\d+分', exp)
                             if pts3: points = pts3
-                        for pi, pt in enumerate(points):
-                            pt = pt.strip()
-                            if not pt: continue
-                            if not re.search(r'（\d+分）\s*$', pt):
-                                pt = re.sub(r'(\d+)分\s*$', r'（\1分）', pt)
-                            marker = cn_nums[pi] if pi < len(cn_nums) else f'[{pi+1}]'
-                            doc.add_paragraph(f"    {marker}{pt}")
+                        # 按子问题（1）（2）分组合并
+                        groups = []
+                        cur_group = []
+                        for pt in points:
+                            if re.match(r'（\d+）', pt.strip()):
+                                if cur_group:
+                                    groups.append(' '.join(cur_group))
+                                cur_group = [pt.strip()]
+                            else:
+                                cur_group.append(pt.strip())
+                        if cur_group:
+                            groups.append(' '.join(cur_group))
+                        # 分组渲染
+                        for gi, grp in enumerate(groups):
+                            grp = grp.strip()
+                            if not grp: continue
+                            if not re.search(r'（\d+分）\s*$', grp):
+                                grp = re.sub(r'(\d+)分\s*$', r'（\1分）', grp)
+                            # 如果组已以（数字）开头，不再加①②
+                            if re.match(r'（\d+）', grp):
+                                doc.add_paragraph(f"    {grp}")
+                            else:
+                                marker = cn_nums[gi] if gi < len(cn_nums) else f'[{gi+1}]'
+                                doc.add_paragraph(f"    {marker}{grp}")
                     else:
                         ans = q.get("ans", q.get("answer", ""))
                         ans_text = str(ans) if str(ans) != "见解析" else ""

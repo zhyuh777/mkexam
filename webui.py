@@ -264,7 +264,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             generator.has_answer_sheet = has_answer_sheet
             if n == 1:
                 selected = selector.auto_select(sub_name, secs)
-                generator.generate(sub_name, selected, secs, label=label)
+                vol = label or "A"
+                generator.generate(sub_name, selected, secs, label=vol)
             else:
                 selected_list = selector.batch_select(sub_name, secs, n)
                 labels = [chr(65 + i) for i in range(n)]

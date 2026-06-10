@@ -299,8 +299,10 @@ async function onExamSubjectChange(): Promise<void> {
   const displayName = SUBJECT_NAMES[name] || name;
   const hCourse = document.getElementById("h-course") as HTMLInputElement;
   const hYear = document.getElementById("h-year") as HTMLInputElement;
+  const hDept = document.getElementById("h-dept") as HTMLInputElement;
   if (hCourse) hCourse.value = displayName;
   if (hYear) hYear.value = name.includes("电工") ? "2025" : "2024";
+  if (hDept) hDept.value = name.includes("电工") ? "" : "信息工程学院 人工智能技术应用专业";
   const rows = document.getElementById("type-rows")!;
   rows.innerHTML = "";
   tabRows = [];
