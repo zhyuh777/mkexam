@@ -2,8 +2,9 @@
 // mkexam TypeScript 前端 — 强类型 + Apple 设计风格
 // 科目显示名映射
 const SUBJECT_NAMES = {
-    "单片机技术": "单片机技术及应用",
+    "单片机技术": "单片机技术应用",
     "电工电子技术": "电工电子技术",
+    "大数据平台部署与运维": "大数据平台部署与运维",
 };
 function toggleHeaderForm() {
     const form = document.getElementById("header-form");
@@ -45,7 +46,7 @@ const POST = (path, body) => api("POST", path, body);
 // ═══════════════════════════════════════════════════════
 const TYPE_NAMES = {
     choice: "选择题", tf: "判断题", fill: "填空题",
-    calc: "计算题", short: "简答题", analysis: "分析题",
+    calc: "计算题", short: "简答题", analysis: "分析题", multiple: "多选题",
     "分析题": "分析题", "应用题": "应用题", "应用分析题": "应用分析题",
 };
 const CN_NUMS = ["一", "二", "三", "四", "五", "六"];
@@ -205,38 +206,122 @@ async function loadExamConfig() {
         opt.textContent = SUBJECT_NAMES[name] || name;
         sel.appendChild(opt);
     }
+    // 先加载预设列表
+    const _presets = await GET("/api/presets");
+    const ps = document.getElementById("preset-select");
+    if (ps) {
+        for (const name of Object.keys(_presets).sort()) {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            ps.appendChild(opt);
+        }
+        ps.onchange = () => { sel.value && onExamSubjectChange(); };
+    }
+    // 初始化显示第一个科目
     if (subjects.length > 0) {
         sel.value = subjects[0];
+        // 自动匹配预设
+        if (ps && _presets) {
+            for (const pn of Object.keys(_presets)) {
+                if (subjects[0].includes(pn)) {
+                    ps.value = pn;
+                    break;
+                }
+            }
+        }
         onExamSubjectChange();
     }
-    sel.onchange = onExamSubjectChange;
+    sel.onchange = () => {
+        // 切换科目时自动匹配预设
+        if (ps && _presets) {
+            const cur = sel.value;
+            let matched = '';
+            for (const pn of Object.keys(_presets)) {
+                if (cur.includes(pn)) {
+                    matched = pn;
+                    break;
+                }
+            }
+            ps.value = matched;
+        }
+        onExamSubjectChange();
+    };
+}
+async function loadPreset() {
+}
+function setHeaderDefaults(name) {
+    const displayName = SUBJECT_NAMES[name] || name;
+    const hCourse = document.getElementById("h-course");
+    const hYear = document.getElementById("h-year");
+    const hDept = document.getElementById("h-dept");
+    const hAuthor = document.getElementById("h-author");
+    const hReviewer = document.getElementById("h-reviewer");
+    if (hCourse)
+        hCourse.value = displayName;
+    if (hYear)
+        hYear.value = name.includes("大数据") ? "2025" : (name.includes("电工") ? "2025" : "2024");
+    if (hDept)
+        hDept.value = name.includes("大数据") ? "信息工程学院 大数据技术专业" : (name.includes("电工") ? "" : "信息工程学院 人工智能技术应用专业");
+    if (hAuthor)
+        hAuthor.value = name.includes("大数据") ? "曾薇" : "";
+    if (hReviewer)
+        hReviewer.value = name.includes("大数据") ? "王亮" : "";
 }
 async function onExamSubjectChange() {
     const name = document.getElementById("exam-subject").value;
     if (!name)
         return;
     const data = await GET(`/api/subject?name=${encodeURIComponent(name)}`);
-    // 设置头部默认值
-    const displayName = SUBJECT_NAMES[name] || name;
-    const hCourse = document.getElementById("h-course");
-    const hYear = document.getElementById("h-year");
-    const hDept = document.getElementById("h-dept");
-    if (hCourse)
-        hCourse.value = displayName;
-    if (hYear)
-        hYear.value = name.includes("电工") ? "2025" : "2024";
-    if (hDept)
-        hDept.value = name.includes("电工") ? "" : "信息工程学院 人工智能技术应用专业";
+    // 检查预设下拉框是否有匹配项
+    const ps = document.getElementById("preset-select");
+    if (ps && ps.value) {
+        try {
+            const presets = await GET("/api/presets");
+            const secs = presets[ps.value];
+            if (secs) {
+                // 直接用预设填充
+                const rows = document.getElementById("type-rows");
+                rows.innerHTML = "";
+                tabRows = [];
+                for (const [title, key, count, score] of secs) {
+                    const avail = data.counts[key] || 999;
+                    const row = document.createElement("div");
+                    row.className = "cfg-row";
+                    const label = TYPE_NAMES[key] || key;
+                    row.innerHTML = '<span class="cfg-label">' + label + '</span>' +
+                        '<input type="number" class="cfg-input cfg-count" value="' + count + '" min="0" max="' + avail + '" style="width:50px">' +
+                        '<span class="cfg-label">\u00D7</span>' +
+                        '<input type="number" class="cfg-input cfg-score" value="' + score + '" min="0" max="99" style="width:50px">' +
+                        '<span class="cfg-label">\u5206</span>' +
+                        '<span class="cfg-subtotal">0</span>';
+                    const countInput = row.querySelector(".cfg-count");
+                    const scoreInput = row.querySelector(".cfg-score");
+                    const subtotalEl = row.querySelector(".cfg-subtotal");
+                    countInput.oninput = () => updateTotal();
+                    scoreInput.oninput = () => updateTotal();
+                    tabRows.push({ key, countInput, scoreInput, subtotalEl });
+                    rows.appendChild(row);
+                }
+                updateTotal();
+                // 设置头部默认值
+                setHeaderDefaults(name);
+                return;
+            }
+        }
+        catch (_) { /* 预设加载失败，回退默认 */ }
+    }
+    setHeaderDefaults(name);
     const rows = document.getElementById("type-rows");
     rows.innerHTML = "";
     tabRows = [];
     const counts = data.counts;
     const defaults = {
         choice: [15, 2], tf: [5, 2], fill: [5, 2],
-        short: [5, 6], calc: [5, 10], analysis: [2, 10], "应用分析题": [2, 10],
+        short: [5, 6], calc: [5, 10], analysis: [2, 10], "应用分析题": [2, 10], multiple: [5, 2],
     };
     // 遍历全部题型（含自定义）
-    const predefinedKeys = ["choice", "tf", "fill", "short", "calc", "analysis"];
+    const predefinedKeys = ["choice", "multiple", "fill", "tf", "short", "calc", "analysis"];
     const seenKeys = new Set(predefinedKeys);
     const allKeys = [...predefinedKeys, ...Object.keys(counts).filter(k => !seenKeys.has(k))];
     for (const key of allKeys) {

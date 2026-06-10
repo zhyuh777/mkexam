@@ -232,7 +232,7 @@ class PaperGenerator:
 
     def generate(self, sub_name: str, selected: dict, sections: list, label: str = ""):
         """生成一份试卷和评分标准"""
-        course_map = {"单片机技术": "单片机技术及应用", "电工电子技术": "电工电子技术"}
+        course_map = {"单片机技术": "单片机技术应用", "电工电子技术": "电工电子技术"}
         display_name = course_map.get(sub_name, sub_name)
         suffix = f"{label}卷" if label else ""
         stem = f"湖北职业技术学院2025-2026学年第二学期《{display_name}》期末考试{suffix}"
@@ -307,7 +307,7 @@ class PaperGenerator:
             except: pass
 
         SECTION_DESCS = {
-            "choice": "从每小题给出的四个备选项中选出符合题目要求的一项。",
+            "choice": "从每小题给出的四个备选项中选出符合题目要求的一项。", "multiple": "从每小题给出的备选项中选出符合题目要求的选项，多选、少选、错选均不得分。",
             "tf": "判断以下说法是否正确，正确的打\"√\"，错误的打\"×\"。",
             "fill": "将正确答案填写在横线上。",
             "short": "简要回答下列问题。",
@@ -317,7 +317,7 @@ class PaperGenerator:
             "应用分析题": "分析下列问题并作答。",
         }
         KEY_TITLES = {
-            "choice": "选择题", "tf": "判断题", "fill": "填空题",
+            "choice": "选择题", "multiple": "多选题", "tf": "判断题", "fill": "填空题",
             "short": "简答题", "calc": "计算分析题",
             "分析题": "分析题", "应用题": "应用题", "应用分析题": "应用分析题",
         }
@@ -608,14 +608,14 @@ class PaperGenerator:
     def _append_questions(self, doc, selected, sections):
         # 大题标题映射（title为空时自动生成）
         KEY_TITLES = {
-            "choice": "选择题", "tf": "判断题", "fill": "填空题",
+            "choice": "选择题", "multiple": "多选题", "tf": "判断题", "fill": "填空题",
             "short": "简答题", "calc": "计算分析题", "analysis": "分析题",
             "分析题": "分析题", "应用题": "应用题",
         }
         CN_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八"]
         # 大题描述文字
         SECTION_DESCS = {
-            "choice": "从每小题给出的四个备选项中选出符合题目要求的一项，并将答案填在答题纸对应题号中。多选、少选、错选均不得分。",
+            "choice": "从每小题给出的四个备选项中选出符合题目要求的一项，并将答案填在答题纸对应题号中。多选、少选、错选均不得分。", "multiple": "从每小题给出的备选项中选出符合题目要求的选项，多选、少选、错选均不得分。",
             "tf": "判断以下说法是否正确，正确的在括号内打\"√\"，错误的打\"×\"。",
             "fill": "将正确答案填写在横线上，每空答案唯一。",
             "short": "简要回答下列问题，要点明确，表述完整。",
@@ -719,7 +719,7 @@ class PaperGenerator:
                         sp.add_run(f"  （{seg_score}分）")
                     elif seg_score:
                         sp.add_run(f"  {seg_score}")
-                if key == "choice":
+                if key in ("choice", "multiple"):
                     opts = q.get("opts", q.get("options", []))
                     # 统一制表符对齐（所有选择题选项用同一位置）
                     def _add_tab(para):
@@ -972,7 +972,7 @@ class PaperGenerator:
     def _build_scoring_sections(self, doc, selected, sections):
         """根据实际选题构建评分标准答案部分"""
         KEY_TITLES = {
-            "choice": "选择题", "tf": "判断题", "fill": "填空题",
+            "choice": "选择题", "multiple": "多选题", "tf": "判断题", "fill": "填空题",
             "short": "简答题", "calc": "计算分析题", "analysis": "分析题",
             "分析题": "分析题", "应用题": "应用题", "应用分析题": "应用分析题",
         }
@@ -991,7 +991,7 @@ class PaperGenerator:
             total_sec = len(qs) * score
 
             # 选择题——用表格填答案
-            if key == "choice":
+            if key in ("choice", "multiple"):
                 self._make_answer_table(doc, title, qs, score, is_tf=False, q_start=q_global)
                 q_global += len(qs)
 

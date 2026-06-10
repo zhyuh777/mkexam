@@ -2,26 +2,31 @@
   {
     "key": "choice",
     "count": 15,
-    "score": 2
+    "score": 2,
+    "title": "一、单项选择题"
   },
   {
     "key": "tf",
     "count": 5,
-    "score": 2
+    "score": 2,
+    "title": "二、判断题"
   },
   {
     "key": "fill",
     "count": 5,
-    "score": 2
+    "score": 2,
+    "title": "三、填空题"
   },
   {
     "key": "short",
     "count": 5,
-    "score": 6
+    "score": 6,
+    "title": "四、计算题"
   },
   {
     "key": "应用分析题",
     "count": 2,
-    "score": 10
+    "score": 10,
+    "title": "五、简答题"
   }
 ]

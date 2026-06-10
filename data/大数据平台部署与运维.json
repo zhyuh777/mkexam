@@ -1,0 +1,548 @@
+[
+  {
+    "id": "bd_c_01",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "大数据的4V特征中Volume指的是（  ）",
+    "opts": [
+      "数据量大",
+      "类型多样",
+      "速度快",
+      "价值高"
+    ],
+    "ans": 0,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_02",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS中NameNode负责管理什么（  ）",
+    "opts": [
+      "数据块",
+      "文件系统元数据",
+      "计算任务",
+      "网络通信"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_03",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS中DataNode的主要功能是（  ）",
+    "opts": [
+      "存储真实数据",
+      "管理元数据",
+      "任务调度",
+      "客户端交互"
+    ],
+    "ans": 0,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_04",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "YARN中ResourceManager的主要作用是（  ）",
+    "opts": [
+      "存储数据",
+      "资源管理和调度",
+      "执行计算",
+      "数据采集"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_05",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "MapReduce的核心思想是（  ）",
+    "opts": [
+      "分而治之",
+      "并行计算",
+      "分布式存储",
+      "虚拟化"
+    ],
+    "ans": 0,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_06",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "MapReduce中Map阶段的输出是（  ）",
+    "opts": [
+      "键值对",
+      "文件",
+      "数据库记录",
+      "数组"
+    ],
+    "ans": 0,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_07",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS默认数据块副本数量是（  ）",
+    "opts": [
+      "1",
+      "2",
+      "3",
+      "5"
+    ],
+    "ans": 2,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_08",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "ZooKeeper在Hadoop生态中主要提供什么服务（  ）",
+    "opts": [
+      "数据存储",
+      "分布式协调",
+      "消息队列",
+      "计算框架"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_09",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "Kafka中消息的基本单位是（  ）",
+    "opts": [
+      "字节",
+      "记录（Record）",
+      "文件",
+      "块"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_10",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "Flume中用于临时存储数据的组件是（  ）",
+    "opts": [
+      "Source",
+      "Channel",
+      "Sink",
+      "Agent"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_11",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "Hive的底层默认计算引擎是（  ）",
+    "opts": [
+      "MapReduce",
+      "Spark",
+      "Flink",
+      "Storm"
+    ],
+    "ans": 0,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_12",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "HBase是哪种类型的数据库（  ）",
+    "opts": [
+      "关系型",
+      "列式NoSQL",
+      "文档型",
+      "图数据库"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_13",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "Sqoop主要用于什么场景（  ）",
+    "opts": [
+      "日志采集",
+      "数据互传",
+      "任务调度",
+      "集群监控"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_14",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS写入数据时数据流向是（  ）",
+    "opts": [
+      "Client→NameNode→DataNode",
+      "Client→DataNode管道",
+      "DataNode→Client",
+      "NameNode→DataNode"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_15",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "MapReduce中Reduce任务的输入是（  ）",
+    "opts": [
+      "原始数据",
+      "Map输出排序后的数据",
+      "数据库数据",
+      "文件数据"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_16",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "YARN中NodeManager部署在哪些节点上（  ）",
+    "opts": [
+      "仅主节点",
+      "每个工作节点",
+      "仅数据节点",
+      "仅计算节点"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_17",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS文件存储的基本单位是（  ）",
+    "opts": [
+      "字节",
+      "数据块（Block）",
+      "文件",
+      "目录"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_18",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "ZooKeeper集群中Leader的作用是（  ）",
+    "opts": [
+      "只读",
+      "处理写请求",
+      "数据备份",
+      "日志记录"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_19",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "Kafka中Topic的物理存储单元是（  ）",
+    "opts": [
+      "Broker",
+      "Partition",
+      "Segment",
+      "Message"
+    ],
+    "ans": 1,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_c_20",
+    "type": "choice",
+    "ch": "大数据平台部署与运维",
+    "q": "大数据技术中MapReduce是由哪个公司提出的（  ）",
+    "opts": [
+      "Google",
+      "Facebook",
+      "Amazon",
+      "Microsoft"
+    ],
+    "ans": 0,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_m_01",
+    "type": "multiple",
+    "ch": "大数据平台部署与运维",
+    "q": "下列哪些属于Hadoop生态系统的核心组件（  ）",
+    "opts": [
+      "HDFS",
+      "MapReduce",
+      "YARN",
+      "ZooKeeper"
+    ],
+    "ans": "ABC",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_m_02",
+    "type": "multiple",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS的主要特点包括（  ）",
+    "opts": [
+      "高容错性",
+      "适合大文件存储",
+      "一次写入多次读取",
+      "支持实时修改"
+    ],
+    "ans": "ABC",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_m_03",
+    "type": "multiple",
+    "ch": "大数据平台部署与运维",
+    "q": "MapReduce中程序员可以自定义的部分包括（  ）",
+    "opts": [
+      "Mapper",
+      "Reducer",
+      "Partitioner",
+      "数据块大小"
+    ],
+    "ans": "ABC",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_m_04",
+    "type": "multiple",
+    "ch": "大数据平台部署与运维",
+    "q": "大数据平台常用的数据采集工具有（  ）",
+    "opts": [
+      "Flume",
+      "Kafka",
+      "Sqoop",
+      "HBase"
+    ],
+    "ans": "ABC",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_m_05",
+    "type": "multiple",
+    "ch": "大数据平台部署与运维",
+    "q": "下列哪些是分布式系统需要解决的问题（  ）",
+    "opts": [
+      "数据一致性",
+      "单点故障",
+      "负载均衡",
+      "数据可视化"
+    ],
+    "ans": "ABC",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_01",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS中管理元数据的节点称为______。",
+    "answer": "NameNode",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_02",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "MapReduce分为Map和______两个阶段。",
+    "answer": "Reduce",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_03",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "YARN中负责任务资源分配和调度的主节点是______。",
+    "answer": "ResourceManager",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_04",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "ZooKeeper集群中超过______的节点存活才能正常工作。",
+    "answer": "半数",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_05",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "Kafka中消息按照______进行逻辑分类。",
+    "answer": "Topic",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_06",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "Hive中使用______语句实现类SQL查询。",
+    "answer": "HQL或HiveQL",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_07",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "HBase中数据的基本存储单元是______。",
+    "answer": "Region",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_08",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "Flume中数据的基本传输单元是______。",
+    "answer": "Event",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_09",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS中数据块的默认大小是______MB。",
+    "answer": "128",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_f_10",
+    "type": "fill",
+    "ch": "大数据平台部署与运维",
+    "q": "Sqoop可以完成关系型数据库和______之间的数据互传。",
+    "answer": "Hadoop或HDFS",
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_01",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "HDFS可以存储任意格式和大小的文件。",
+    "ans": true,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_02",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "MapReduce中每个Map任务处理一个数据分片。",
+    "ans": true,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_03",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "ZooKeeper的所有节点都参与Leader选举。",
+    "ans": false,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_04",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "Kafka的消息在消费后立即被删除。",
+    "ans": false,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_05",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "Hive支持insert、update、delete等标准SQL操作。",
+    "ans": false,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_06",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "HBase适合存储结构化数据。",
+    "ans": true,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_07",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "Flume的Channel必须是内存类型。",
+    "ans": false,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_08",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "YARN的NodeManager运行在每个数据节点上。",
+    "ans": true,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_09",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "Sqoop可以将HDFS数据导出到关系型数据库。",
+    "ans": true,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_t_10",
+    "type": "tf",
+    "ch": "大数据平台部署与运维",
+    "q": "大数据处理的核心理念是将计算移动到数据所在节点。",
+    "ans": true,
+    "difficulty": 1
+  },
+  {
+    "id": "bd_s_01",
+    "type": "short",
+    "ch": "大数据平台部署与运维",
+    "q": "请简述HDFS中NameNode和DataNode各自的功能。",
+    "answer": "NameNode：管理文件系统的命名空间，维护文件与数据块的映射关系，处理客户端的元数据请求。DataNode：存储实际的数据块，执行数据块的读写操作，定期向NameNode汇报存储状态。",
+    "exp": "①NameNode功能5分②DataNode功能5分",
+    "difficulty": 2
+  },
+  {
+    "id": "bd_s_02",
+    "type": "short",
+    "ch": "大数据平台部署与运维",
+    "q": "请简述MapReduce中Map阶段和Reduce阶段的作用。",
+    "answer": "Map阶段：将输入数据切分为多个分片，每个分片由一个Map任务处理，输出键值对形式的中间结果。Reduce阶段：接收Map阶段输出的键值对，将相同Key的数据进行合并归约，输出最终结果。",
+    "exp": "①Map阶段作用5分②Reduce阶段作用5分",
+    "difficulty": 2
+  },
+  {
+    "id": "bd_s_03",
+    "type": "short",
+    "ch": "大数据平台部署与运维",
+    "q": "请简述YARN的基本架构组件及其作用。",
+    "answer": "ResourceManager：全局资源管理和调度，接收客户端提交的作业。NodeManager：每个节点上的代理，监控和管理本节点资源与任务。ApplicationMaster：每个应用一个，负责向ResourceManager申请资源和监控任务执行。Container：资源抽象单位，包含CPU和内存等资源。",
+    "exp": "①ResourceManager3分②NodeManager2分③ApplicationMaster3分④Container2分",
+    "difficulty": 2
+  },
+  {
+    "id": "bd_s_04",
+    "type": "short",
+    "ch": "大数据平台部署与运维",
+    "q": "请简述Kafka的基本架构及消息传递流程。",
+    "answer": "Producer生产消息发送到指定Topic的Partition，消息按顺序存储在Partition中。Consumer订阅Topic，从Partition拉取消息进行消费。Broker是Kafka服务器节点，负责存储消息和处理请求。ZooKeeper管理Broker元数据和Consumer Group信息。",
+    "exp": "①Producer发送消息2分②Partition存储2分③Consumer消费2分④Broker和ZooKeeper4分",
+    "difficulty": 2
+  }
+]
